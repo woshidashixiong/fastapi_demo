@@ -1,0 +1,153 @@
+v1.api.py
+from fastapi import APIRouter
+
+from app.api.v1.routes import login
+
+v1_router = APIRouter()
+
+v1_router.include_router(login.router, prefix="/login", tags=["login"])
+=================================================
+v1.deps.py
+from fastapi import Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.db.session import get_db_session
+
+SessionDep: AsyncSession = Depends(get_db_session)
+================================================
+v1.users.py
+import uuid
+from datetime import datetime, timedelta
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+from fastapi_pagination import Params
+from fastapi_pagination.ext.sqlmodel import paginate
+from loguru import logger
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.api.v1.deps import SessionDep
+
+from app.models.users import UserTest
+from app.schemas.response import CodeEnum, ResponseModel
+from app.schemas.users import AddUser
+
+router = APIRouter()
+
+
+@router.post("/add")
+async def add1(body: addUser, session: AsyncSession = SessionDep) -> ResponseModel:
+    dump_body: dict = body.model_dump()
+    obj = UserTest(
+        **dump_body
+    )
+    session.add(obj)
+    session.add_all([])
+    await session.commit()
+    await session.refresh(obj)
+    return ResponseModel()
+
+
+@router.get("", summary="")
+async def gets(
+        params: Annotated[Params, Depends()], session: AsyncSession = SessionDep
+):
+    queryset = select(UserTest)
+    queryset = queryset.where(UserTest.eee == "2223333")
+    p = await paginate(session=session, query=queryset, params=params)
+    return ResponseModel(data=p)
+
+
+@router.get("/detail/4444")
+async def get_detail(session: AsyncSession = SessionDep):
+    result = await session.execute(
+        select(UserTest).where(UserTest.id == 111).options(selectinload(UserTest.hourses))
+    )
+    detail = result.scalars().first()
+    return ResponseModel()
+
+
+@router.post("/put")
+async def put(session: AsyncSession = SessionDep):
+    result = await session.execute()
+    obj = result.scalars().first()
+    obj.ff="new1"
+    await session.commit()
+    await session.refresh(obj)
+    return ResponseModel(data=None)
+
+
+@router.get("/del/")
+async def del(id: int, session: AsyncSession = SessionDep):
+    u = await session.execute(select(UserTest).where(UserTest.id == 111))
+    obj = u.scalar()
+    await session.delete(obj)
+    await session.commit()
+    return ResponseModel(data=None)
+
+
+=====================================================
+core.config.py
+
+from pathlib import Path
+from typing import Any
+
+from pydantic import AnyHttpUrl, PostgresDsn, field_validator
+from pydantic_core.core_schema import FieldValidationInfo
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "111"
+    API_VERSION: str = "v1"
+    API_V1_STR: str = f"/api/{API_VERSION}"
+    PORT: int = 8080
+    RELOAD: bool = True
+    ROOT_DIR: Path = Path(__file__).parent.parent.parent.resolve()
+    DOTENV: Path = Path(ROOT_DIR, ".env")
+    MEDIA_ROOT: Path = Path(ROOT_DIR, "media")
+    STATIC_ROOT: Path = Path(ROOT_DIR, "static")
+
+    DATABASE_USER: str
+    DATABASE_PASSWORD: str
+    DATABASE_HOST: str
+    DATABASE_PORT: int = 5432
+    DATABASE_NAME: str
+    ASYNC_DATABASE_URI: PostgresDsn | str = ""
+
+    @field_validator("ASYNC_DATABASE_URI", mode="after")
+    def assemble_db_url(cls, v: str | None, info: FieldValidationInfo) -> Any:
+        if isinstance(v, str) and v == "":
+            return PostgresDsn.build(
+                scheme="postgresql+asyncpg",
+                username=info.data["DATABASE_USER"],
+                password=info.data["DATABASE_PASSWORD"],
+                host=info.data["DATABASE_HOST"],
+                port=info.data["DATABASE_PORT"],
+                path=info.data["DATABASE_NAME"],
+            )
+        return v
+
+    BACKEND_CORS_ORIGINS: list[str] | list[AnyHttpUrl] | None = None
+
+    @field_validator("BACKEND_CORS_ORIGINS")
+    def assemble_cors_origins(cls, v: list[str]):
+        if isinstance(v, list):
+            return [i.strip() for i in v]
+
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_URL: str = ""
+
+    @field_validator("REDIS_URL", mode="after")
+    def assemble_redis_url(cls, v: str | None, info: FieldValidationInfo) -> Any:
+        if v == "":
+            return f"redis://{info.data['REDIS_HOST']}:{info.data['REDIS_PORT']}"
+        return v
+
+    model_config = SettingsConfigDict(env_file=DOTENV, case_sensitive=True)
+
+
+settings = Settings()
