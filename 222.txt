@@ -1,0 +1,112 @@
+db.session.py
+from fastapi_async_sqlalchemy import db
+
+
+async def get_db_session():
+    return db.session
+===========================
+models.base.py
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel
+
+
+class BaseModel(SQLModel):
+    id: int = Field(primary_key=True)
+    created_at: datetime | None = Field(default_factory=datetime.now)
+    updated_at: datetime | None = Field(
+        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+    )
+================================
+models.user.py
+from datetime import datetime
+from typing import Any, Optional
+
+from sqlalchemy import JSON, Column, Enum
+from sqlmodel import Field, Relationship, SQLModel
+
+from app.enums import (
+    TypeEnum,
+)
+from app.models.base import BaseModel
+
+
+class UserBase(SQLModel):
+    name: str = Field(max_length=128, nullable=False, description="名称")
+    type: TypeEnum = Field(
+        sa_column=Column(Enum(TypeEnum)), description="类型"
+    )
+
+    aaa: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_type=JSON,
+        nullable=True,
+        description="{}",
+    )
+
+
+class UserTest(BaseModel, UserBase, table=True):
+    parent_id: int | None = Field(default=None, foreign_key="usertest.id", nullable=True)
+    parent: Optional["UserTest"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={
+            "remote_side": "UserTest.id",
+            "foreign_keys": "UserTest.parent_id",
+        },
+    )
+
+    children: list["UserTest"] = Relationship(
+        back_populates="parent",
+    )
+
+
+
+    hources: list["Hources"] = Relationship(
+        back_populates="usertest",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",  # 删除父节点时级联删除子节点
+            "order_by": "Hources.id"
+        },
+    )
+
+
+class Hources(BaseModel, table=True):
+    fff: int
+    usertest_id: int | None = Field(default=None, foreign_key="usertest.id", nullable=True)
+    usertest: Optional["UserTest"] = Relationship(back_populates="hources")
+
+================================================
+schemas.response.py
+
+from sqlmodel import SQLModel
+from enum import IntEnum
+from typing import Any
+
+from pydantic import BaseModel
+
+
+class CodeEnum(IntEnum):
+    OK = 0
+    FAIL = 1
+    ERROR = 500
+    FORBIDDEN = 403
+
+
+class ResponseModel(BaseModel):
+    code: CodeEnum = CodeEnum.OK
+    msg: str = "Success"
+    data: Any
+
+class Putuser(SQLModel):
+    id: int
+    datas: list
+============================================
+enums.py
+
+from enum import IntEnum
+
+
+class TypeEnum(IntEnum):
+    
+
+    aaa = 1  # aaa
