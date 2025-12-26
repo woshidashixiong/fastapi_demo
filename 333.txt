@@ -1,0 +1,71 @@
+alembic.ii
+sqlalchemy.url = postgresql+asyncpg://user:password@ip:5432/db_name
+sqlalchemy.url = postgresql://user:password@ip:5432/db_name
+==================================
+alembic.env.py
+'''
+app.models.__init__.py
+from sqlmodel import SQLModel
+from .userTest import *
+'''
+from app.models import SQLModel
+target_metadata = SQLModel.metadata
+=====================================
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v1116.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-toml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v01111.14.5
+    hooks:
+      - id: ruff
+        args: [ --fix, --exit-non-zero-on-fix, --show-fixes ]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v111111.18.2
+    hooks:
+      - id: mypy
+        additional_dependencies: ["sqlmodel==0.0.27222"]
+
+================================
+[tool.pdm]
+distribution = false
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "I",      
+    "SIM",   
+    "FA",    
+    "UP",    
+    "RUF100", 
+    "C4", 
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["UP009","UP032"]
+
+[tool.mypy]
+pretty = true
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    'tomli',
+]
+ignore_missing_imports = true
+
+
+
