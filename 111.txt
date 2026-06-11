@@ -151,3 +151,27 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_data(response: bytes):
+    actual_floor = response[6]  # 实际楼层 (第7字节)
+    operation_mode = response[8]  # 运行模式 (第9字节)
+    door_status = response[10]  # 门状态 (第11字节)
+
+    # 转换值为可读信息
+    mode_desc = "自动" if operation_mode == 0x00 else "手动"
+
+    door_desc_map = {
+        0x01: "开门",
+        0x02: "关门",
+        0x03: "有人"
+    }
+    door_desc = door_desc_map.get(door_status, f"未知状态({hex(door_status)})")
+
+    # 输出结果
+    print(f"实际楼层: {actual_floor}层")
+    print(f"运行模式: {mode_desc}")
+    print(f"门状态: {door_desc}")
+    return actual_floor, mode_desc, door_desc
+
+
