@@ -173,8 +173,3 @@ def get_data(response: bytes):
     print(f"运行模式: {mode_desc}")
     print(f"门状态: {door_desc}")
     return actual_floor, mode_desc, door_desc
-
-
-{"account":"201392-API",
-"1111":
-"a916d33a9a1660ffc47218fad8893d6d1308ee0512ae328cbec2a2b888861f52"}
